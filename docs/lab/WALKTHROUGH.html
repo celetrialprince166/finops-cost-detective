@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cost Detective Audit — Live Walkthrough Script</title>
+<style>
+  /* ─────────────────────────────────────────────────────────────────────
+     Design tokens
+  ───────────────────────────────────────────────────────────────────── */
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --paper: #fbfaf7;
+    --paper-card: #ffffff;
+    --rule: #e6e3dc;
+    --accent: #b8451f;             /* terracotta */
+    --accent-soft: #fbe9e0;
+    --judgement: #6b3fa0;          /* purple — senior-engineer moments */
+    --judgement-soft: #f1e9fa;
+    --narration: #1e6f5c;          /* deep green — verbatim narration */
+    --narration-soft: #e1f1ec;
+    --reason: #2a5d8f;             /* blue — reasoning/context */
+    --reason-soft: #e3edf6;
+    --warning: #a45a00;            /* amber — pitfalls */
+    --warning-soft: #fbeed1;
+    --code-bg: #f4f1ea;
+    --serif: "Iowan Old Style", "Charter", "Georgia", "Cambria", serif;
+    --sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono:  "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+  body {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 17.5px;
+    line-height: 1.65;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Layout: sticky TOC sidebar + main column */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 760px);
+    gap: 48px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 48px 32px 96px;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+     Sidebar — sticky TOC
+  ───────────────────────────────────────────────────────────────────── */
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.4;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+  nav.toc h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: toc;
+  }
+  nav.toc li {
+    counter-increment: toc;
+    margin-bottom: 6px;
+  }
+  nav.toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    display: block;
+    padding: 4px 10px;
+    border-left: 2px solid var(--rule);
+    transition: all 120ms ease;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero) "  ";
+    color: var(--rule);
+    font-variant-numeric: tabular-nums;
+  }
+  nav.toc a:hover {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  nav.toc .timing {
+    color: var(--rule);
+    float: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+     Main column
+  ───────────────────────────────────────────────────────────────────── */
+  main { min-width: 0; }
+
+  /* Cover block */
+  .cover {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 36px;
+    margin-bottom: 48px;
+  }
+  .cover .eyebrow {
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .cover h1 {
+    font-size: 44px;
+    line-height: 1.08;
+    margin: 0 0 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .cover .deck {
+    font-size: 20px;
+    color: var(--ink-soft);
+    line-height: 1.45;
+    margin: 0 0 28px;
+    max-width: 60ch;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 10px 20px;
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 20px 24px;
+    background: var(--paper-card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+  }
+  .meta-grid dt {
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .meta-grid dd {
+    margin: 0;
+    color: var(--ink);
+  }
+
+  /* Headings */
+  h2 {
+    font-size: 28px;
+    margin: 56px 0 8px;
+    line-height: 1.18;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    scroll-margin-top: 1.5rem;
+  }
+  h2 .num {
+    font-family: var(--sans);
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 14px;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+  }
+  h2 + .section-deck {
+    font-style: italic;
+    color: var(--ink-soft);
+    margin: 0 0 28px;
+    font-size: 17px;
+    border-left: 3px solid var(--accent);
+    padding-left: 16px;
+  }
+  h3 {
+    font-size: 19px;
+    margin: 32px 0 8px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: 15px;
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin: 24px 0 8px;
+    font-weight: 600;
+  }
+
+  p { margin: 0 0 14px; }
+  p + p { margin-top: 0; }
+  ul, ol { padding-left: 22px; margin: 0 0 16px; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  /* Code */
+  code {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    background: #1d2230;
+    color: #e8eaf2;
+    padding: 18px 22px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+  .cmd-label {
+    font-family: var(--sans);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin: 18px 0 2px;
+    font-weight: 600;
+  }
+
+  /* Callouts */
+  .callout {
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 20px 0;
+    font-family: var(--sans);
+    font-size: 14.5px;
+    line-height: 1.6;
+    border-left: 4px solid;
+  }
+  .callout .label {
+    display: inline-block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .callout p { margin-bottom: 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .callout.narration {
+    background: var(--narration-soft);
+    border-left-color: var(--narration);
+  }
+  .callout.narration .label { color: var(--narration); }
+  .callout.narration blockquote {
+    margin: 0;
+    font-style: italic;
+    font-family: var(--serif);
+    font-size: 16.5px;
+    color: var(--ink);
+    border: none;
+    padding: 0;
+  }
+  .callout.judgement {
+    background: var(--judgement-soft);
+    border-left-color: var(--judgement);
+  }
+  .callout.judgement .label { color: var(--judgement); }
+  .callout.reason {
+    background: var(--reason-soft);
+    border-left-color: var(--reason);
+  }
+  .callout.reason .label { color: var(--reason); }
+  .callout.warning {
+    background: var(--warning-soft);
+    border-left-color: var(--warning);
+  }
+  .callout.warning .label { color: var(--warning); }
+
+  /* Step blocks */
+  .step {
+    background: var(--paper-card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 22px 26px;
+    margin: 16px 0 22px;
+  }
+  .step h4 {
+    margin-top: 0;
+  }
+  .step-header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .step-num {
+    font-family: var(--sans);
+    background: var(--accent);
+    color: white;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .step-title {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 15.5px;
+    color: var(--ink);
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 14px;
+    margin: 16px 0 22px;
+    background: var(--paper-card);
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    border-bottom: 2px solid var(--rule);
+  }
+  td code { font-size: 12.5px; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Banner — what this document is */
+  .banner {
+    background: linear-gradient(135deg, var(--accent) 0%, #d65f30 100%);
+    color: white;
+    padding: 24px 28px;
+    border-radius: 10px;
+    margin: 0 0 36px;
+    font-family: var(--sans);
+  }
+  .banner h2 {
+    color: white;
+    margin: 0 0 8px;
+    font-size: 17px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .banner p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.55;
+    opacity: 0.96;
+  }
+
+  /* Three-moments highlight strip */
+  .moments {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 24px 0 32px;
+  }
+  .moment {
+    background: var(--judgement-soft);
+    border: 1px solid var(--judgement);
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .moment .num {
+    display: inline-block;
+    background: var(--judgement);
+    color: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    text-align: center;
+    line-height: 22px;
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .moment .title {
+    font-weight: 600;
+    color: var(--judgement);
+    margin-bottom: 6px;
+  }
+
+  /* Inline tag */
+  .tag {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--code-bg);
+    color: var(--ink-soft);
+    vertical-align: middle;
+  }
+  .tag.lab { background: #e8f0e3; color: #4a6b2f; }
+  .tag.cs  { background: #e3eef6; color: #2a5d8f; }
+
+  /* Footer / print */
+  footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  /* Responsive */
+  @media (max-width: 980px) {
+    .shell {
+      grid-template-columns: 1fr;
+      padding: 24px 20px 64px;
+    }
+    nav.toc {
+      position: static;
+      max-height: none;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .moments { grid-template-columns: 1fr; }
+    .cover h1 { font-size: 32px; }
+  }
+
+  /* Print */
+  @media print {
+    body { background: white; font-size: 11pt; }
+    .shell { grid-template-columns: 1fr; padding: 0; max-width: none; }
+    nav.toc { display: none; }
+    .step, .callout, .meta-grid { break-inside: avoid; }
+    pre { font-size: 9pt; background: #f5f5f5; color: #000; border: 1px solid #ccc; }
+    h2 { break-before: page; }
+    h2:first-of-type { break-before: avoid; }
+    .banner { background: white !important; color: black; border: 1px solid #000; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ────────── SIDEBAR ────────── -->
+  <nav class="toc" aria-label="Walkthrough sections">
+    <h2>Walkthrough</h2>
+    <ol>
+      <li><a href="#what-this-is">What this document is<span class="timing">read</span></a></li>
+      <li><a href="#production">Format &amp; production<span class="timing">read</span></a></li>
+      <li><a href="#moments">The 3 judgement moments<span class="timing">read</span></a></li>
+      <li><a href="#preflight">Pre-flight<span class="timing">15 m</span></a></li>
+      <li><a href="#timing">Timing overview<span class="timing">map</span></a></li>
+      <li><a href="#framing">Scenario framing<span class="timing">2 m</span></a></li>
+      <li><a href="#inform">Inform — find waste<span class="timing">4 m</span></a></li>
+      <li><a href="#automate">Automate — EBS GC<span class="timing">3 m</span></a></li>
+      <li><a href="#budget">Govern — Budget<span class="timing">3 m</span></a></li>
+      <li><a href="#tags">Govern — Tagging<span class="timing">3 m</span></a></li>
+      <li><a href="#spot">Optimize — Spot ASG<span class="timing">4 m</span></a></li>
+      <li><a href="#recs">Recommendations<span class="timing">2 m</span></a></li>
+      <li><a href="#recap">Recap &amp; close<span class="timing">1 m</span></a></li>
+      <li><a href="#recovery">Recovery cheatsheet<span class="timing">ref</span></a></li>
+      <li><a href="#postprod">Post-production<span class="timing">after</span></a></li>
+    </ol>
+  </nav>
+
+  <!-- ────────── MAIN ────────── -->
+  <main>
+
+    <!-- COVER -->
+    <header class="cover">
+      <div class="eyebrow">Submission · Live Walkthrough</div>
+      <h1>Cost Detective Audit — Walkthrough Script</h1>
+      <p class="deck">
+        A narrated, recordable demo of the AWS waste audit. Every step paired with the
+        reasoning behind it — so the recording sounds like an engineer thinking
+        out loud, not a tutorial being read.
+      </p>
+
+      <dl class="meta-grid">
+        <dt>Target length</dt>      <dd>22–25 minutes</dd>
+        <dt>Sandbox account</dt>    <dd><code>648637468459</code> · region <code>eu-west-1</code></dd>
+        <dt>Lab tag baseline</dt>   <dd><code>CostCenter=Lab</code>, <code>Owner=&lt;you&gt;</code>, <code>Project=cost-detective</code></dd>
+        <dt>Budget cap</dt>         <dd><code>$50</code> MONTHLY — FORECASTED 100 % + ACTUAL 80 %</dd>
+        <dt>Pre-reqs</dt>           <dd>AWS CLI authenticated · Terraform ≥ 1.6 · Python 3.11 · repo at clean <code>main</code> · Slack webhook in SSM <code>/cloudsweep/slack/webhook</code></dd>
+        <dt>Convention</dt>         <dd><span class="tag cs">CS</span> = CloudSweep engineering artifact &nbsp;·&nbsp; <span class="tag lab">LAB</span> = Cost Detective lab artifact</dd>
+      </dl>
+    </header>
+
+    <!-- 1. WHAT THIS IS -->
+    <section id="what-this-is">
+      <div class="banner">
+        <h2>What this document is — and why it exists</h2>
+        <p>
+          The audit deliverable has two halves: the written documentation (README + audit doc + optimization guide)
+          and the live walkthrough. Documentation alone proves the work was <em>described</em>; the walkthrough
+          proves the work <em>actually runs</em>. This document is the script for that walkthrough — designed so
+          that anyone reading it understands not only what to click, but why each step was chosen and what the
+          reviewer is meant to take away from seeing it.
+        </p>
+      </div>
+
+      <p>
+        Treat this as a presenter's full notes. Each section below contains four blocks:
+      </p>
+      <ul>
+        <li><strong>Goal.</strong> What stakeholder takeaway this section produces.</li>
+        <li><strong>Setup &amp; actions.</strong> Numbered steps with copy-pasteable commands.</li>
+        <li><strong>Reasoning.</strong> Why this step exists at all — the engineering principle behind it.</li>
+        <li><strong>Narration.</strong> Verbatim text you can read on camera. It's written in spoken English, not bullet-point English.</li>
+      </ul>
+      <p>
+        If a reviewer pauses the recording and asks "why did you do it that way?", every answer is in this document.
+      </p>
+    </section>
+
+    <!-- 2. PRODUCTION NOTES -->
+    <section id="production">
+      <h2><span class="num">01</span>Format &amp; production notes</h2>
+      <p class="section-deck">Read once before you ever hit record.</p>
+
+      <h3>Pre-record, do not present live</h3>
+      <p>
+        A live walkthrough is hostage to AWS console latency, expired tokens, and your own nerves. Pre-recording
+        gives you the freedom to retake any section, edit out dead air, and zoom in on the moments that matter.
+        Reviewers can scrub a recording at 1.25× speed; they cannot scrub a live call. Use OBS, Loom, or Windows
+        Game Bar (<code>Win+G</code>) — whichever you already know. Quality bar:
+      </p>
+      <ul>
+        <li><strong>1080p+ video</strong>, mic audio (not just system audio) so your voice carries.</li>
+        <li><strong>Zoom in</strong> on browser and terminal fonts so console text is legible on a phone screen.</li>
+        <li><strong>Record in sections and edit.</strong> Do not attempt a single 25-minute take — you will fluff one line and want to rerecord the whole thing.</li>
+        <li><strong>Pre-stage long Terraform applies</strong> off-camera. On-camera, run <code>terraform output</code> to show results without making reviewers watch a three-minute apply.</li>
+      </ul>
+
+      <div class="callout reason">
+        <span class="label">Why this matters</span>
+        <p>
+          The single most common failure mode for walkthrough submissions is a 35-minute video where most of it is the
+          presenter waiting for AWS. Reviewers don't grade you on "the apply succeeded"; they grade you on
+          how clearly you explained <em>why you built what you built</em>. Make the recording about the explanation.
+        </p>
+      </div>
+    </section>
+
+    <!-- 3. THE THREE MOMENTS -->
+    <section id="moments">
+      <h2><span class="num">02</span>The three "senior-engineer" moments</h2>
+      <p class="section-deck">Three places to demonstrate judgement, not just button-clicking.</p>
+
+      <p>
+        Most candidates can deploy a budget and an ASG. What separates a senior engineer from a tutorial-follower
+        is being able to articulate why a particular configuration was chosen over its plausible alternatives.
+        Three moments in this walkthrough are designed to surface that judgement. When you reach them, slow down
+        — these are the sentences a reviewer will remember.
+      </p>
+
+      <div class="moments">
+        <div class="moment">
+          <span class="num">1</span>
+          <div class="title">Safety triad (EBS GC, § 7)</div>
+          <p>Dry-run by default · tag-scope every destructive call · snapshot before delete. The script literally refuses to run if you combine <code>--delete</code> with an empty tag filter.</p>
+        </div>
+        <div class="moment">
+          <span class="num">2</span>
+          <div class="title">Layered alerts (Budget, § 8)</div>
+          <p>FORECASTED catches runaways before the dollars land; ACTUAL is the late-warning fallback. We layer both because forecasting can be wrong on small bases.</p>
+        </div>
+        <div class="moment">
+          <span class="num">3</span>
+          <div class="title">Allocation strategy (Spot ASG, § 10)</div>
+          <p><code>price-capacity-optimized</code> balances current Spot price with pool depth — more interruption-resistant than the older <code>lowest-price</code> strategy.</p>
+        </div>
+      </div>
+
+      <div class="callout judgement">
+        <span class="label">Delivery tip</span>
+        <p>
+          At each of these moments, pause for a beat and look at the camera. Don't power through them as if they were
+          another checklist item. These are the sentences that prove you understand the <em>why</em>.
+        </p>
+      </div>
+    </section>
+
+    <!-- 4. PRE-FLIGHT -->
+    <section id="preflight">
+      <h2><span class="num">03</span>Pre-flight — fifteen minutes before recording</h2>
+      <p class="section-deck">Off-camera setup. Skip nothing here; every item exists because it has bitten a previous take.</p>
+
+      <h3>Account &amp; credentials</h3>
+      <p>
+        Confirm you are signed in to the right AWS account. The audit's evidence references account
+        <code>648637468459</code>; recording against a different account invalidates the entire reproduction.
+      </p>
+      <div class="cmd-label">PowerShell</div>
+<pre><code>aws sts get-caller-identity
+# Expect Account: "648637468459"</code></pre>
+
+      <p>
+        Confirm the Slack webhook is in SSM. The CloudSweep notifier reads it from
+        Parameter Store; without it the SFN execution still succeeds but the notifier logs a 404.
+      </p>
+<pre><code>aws ssm get-parameter `
+  --name /cloudsweep/slack/webhook --with-decryption `
+  --region eu-west-1</code></pre>
+
+      <h3>State of the world</h3>
+      <p>
+        Confirm CloudSweep Phases 1–4 are already deployed and there are no leftover <code>CostCenter=Lab</code>
+        resources from a previous run. Leftovers cause confusing duplicate findings on camera. If anything is
+        present, run the § 12 teardown <em>before</em> you start recording.
+      </p>
+<pre><code>aws ec2 describe-volumes `
+  --filters Name=tag:CostCenter,Values=Lab `
+  --region eu-west-1 --query "Volumes[].VolumeId"
+# Expect: []  (empty)</code></pre>
+
+      <h3>Window layout</h3>
+      <p>
+        Switching applications mid-recording wastes time and breaks the reviewer's attention. Open everything
+        you'll need in a single browser window with the tabs in this order so the demo flows left-to-right:
+      </p>
+      <ol>
+        <li>EC2 → Volumes</li>
+        <li>EC2 → Elastic IPs</li>
+        <li>EC2 → Instances</li>
+        <li>EC2 → Auto Scaling Groups</li>
+        <li>Step Functions → <code>cloudsweep-dev-sfn</code></li>
+        <li>Billing → Budgets</li>
+        <li>SNS → Topics → <code>cloudsweep-dev-lab-cost-alerts</code></li>
+        <li>IAM → Policies → <code>cloudsweep-dev-lab-require-costcenter</code></li>
+        <li>Cost Explorer</li>
+        <li>Trusted Advisor</li>
+        <li>CloudWatch Logs</li>
+      </ol>
+      <p>
+        Two terminal panes side by side: one in the repo root for Terraform and Python commands, one as a
+        "scratch" pane for AWS CLI queries. An editor in the background showing <code>README.md</code> so
+        you can switch to it for the framing and recap.
+      </p>
+
+      <div class="callout warning">
+        <span class="label">Pitfall</span>
+        <p>
+          Do not record at native resolution if your monitor is 4K — the AWS console text will be unreadable on a
+          phone. Either set the recording region to 1080p or zoom your browser to 125 % beforehand.
+        </p>
+      </div>
+    </section>
+
+    <!-- 5. TIMING TABLE -->
+    <section id="timing">
+      <h2><span class="num">04</span>Timing overview</h2>
+      <p class="section-deck">The whole walkthrough should land at 22 minutes. Use this as a stopwatch.</p>
+
+      <table>
+        <thead>
+          <tr><th>§</th><th>Section</th><th>Time</th><th>On screen</th><th>What you are proving</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>06</td><td>Scenario framing</td><td>2 m</td><td>README § 1 + § 2</td><td>Problem framed, outcomes quantified.</td></tr>
+          <tr><td>07</td><td><strong>Inform</strong> — find the waste</td><td>4 m</td><td>EC2 console · Cost Explorer · SFN execution</td><td>Three zombies detected three different ways.</td></tr>
+          <tr><td>08</td><td><strong>Automate</strong> — EBS GC script</td><td>3 m</td><td>Terminal: dry-run then real delete</td><td>The safety triad in action.</td></tr>
+          <tr><td>09</td><td><strong>Govern</strong> — Budget + SNS</td><td>3 m</td><td>Budgets console · SNS publish · inbox</td><td>FORECASTED + ACTUAL layered alerts.</td></tr>
+          <tr><td>10</td><td><strong>Govern</strong> — Tag enforcement</td><td>3 m</td><td>IAM policy JSON · negative + positive tests</td><td>Deny verified on both paths.</td></tr>
+          <tr><td>11</td><td><strong>Optimize</strong> — Mixed Instances ASG</td><td>4 m</td><td>ASG console · 1 OD + 3 Spot</td><td>−51 % vs all On-Demand.</td></tr>
+          <tr><td>12</td><td>Recommendations + teardown</td><td>2 m</td><td>README § 9 + destroy command</td><td>Prioritized plan; clean exit.</td></tr>
+          <tr><td>13</td><td>Recap &amp; close</td><td>1 m</td><td>"60-second" block in README</td><td>Five outcomes restated.</td></tr>
+          <tr><td colspan="2"><strong>Total</strong></td><td><strong>22 m</strong></td><td colspan="2"></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6. FRAMING -->
+    <section id="framing">
+      <h2><span class="num">05</span>Scenario framing</h2>
+      <p class="section-deck">2 minutes · README on screen.</p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Set the problem before showing the solution. Reviewers should know within the first minute (a) what
+        scenario this audit is responding to, (b) what frameworks the work is anchored to, and (c) that every
+        downstream claim has verified evidence behind it.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Open README § 1 — "The Problem"</span></div>
+        <p>
+          Scroll to the section titled "The Problem" and read the inherited-account framing aloud. Do not summarize it —
+          the framing has been written to sound natural read out. It establishes that this is a real-world scenario, not
+          a contrived demo.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Scroll to § 2 — Executive Summary</span></div>
+        <p>
+          Hover over the Controls table. Do <em>not</em> read every row. Instead, point at the <em>"Verified by"</em>
+          column with your cursor and say one sentence: "every claim in this audit has an artifact behind it." That
+          single move tells reviewers what they're about to watch.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Name the frameworks</span></div>
+        <p>
+          Mention by name the two frameworks the audit is anchored to: the <strong>FinOps Foundation Framework</strong>
+          (Inform / Optimize / Operate) and <strong>AWS Well-Architected — Cost Optimization Pillar</strong>. You are not
+          going to teach either framework on camera; you are signalling that the work is auditable against external standards.
+        </p>
+      </div>
+
+      <div class="callout reason">
+        <span class="label">Why open this way</span>
+        <p>
+          Reviewers form their assessment in the first ninety seconds. If you open by clicking around in the AWS console,
+          they read it as a tutorial run-through. If you open by framing the problem, the rest of the recording is read
+          as proof against that frame. Same content, different interpretation.
+        </p>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Narration — read aloud</span>
+        <blockquote>
+          "We inherited an AWS account with no cost controls, no tagging discipline, and no automated cleanup.
+          The audit you're about to watch is the response. Three zombie classes detected, four controls deployed,
+          one optimized architecture pattern — every claim is verified in <code>eu-west-1</code> against account
+          648637468459. The work is anchored to the FinOps Foundation Framework and the AWS Well-Architected
+          cost optimization pillar, so it maps cleanly against industry standards. Let's start with the findings."
+        </blockquote>
+      </div>
+    </section>
+
+    <!-- 7. INFORM -->
+    <section id="inform">
+      <h2><span class="num">06</span>Inform — find the waste</h2>
+      <p class="section-deck">4 minutes · EC2 console, Cost Explorer, CloudSweep Step Functions. <span class="tag cs">CS</span> + <span class="tag lab">LAB</span></p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Demonstrate that the three zombie classes were detected by <em>multiple independent</em> sources — the AWS
+        console, AWS-native cost tooling, and the CloudSweep pipeline. Triangulation is what makes a finding
+        credible. One source can be a glitch; three sources agreeing is a fact.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Show the Terraform outputs</span></div>
+        <p>
+          The seed resources were created off-camera. Don't run <code>terraform apply</code> here — it adds three
+          minutes for no benefit. Just print the outputs so reviewers see the three IDs the rest of the section
+          will keep referring back to.
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>terraform -chdir=terraform/environments/dev output `
+  | Select-String "lab_"</code></pre>
+        <p>
+          You should see <code>lab_ebs_volume_id</code>, <code>lab_eip_allocation_id</code>, and
+          <code>lab_idle_instance_id</code>. Read the three IDs aloud once so reviewers can map them to what you
+          show next.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Verify in the EC2 console — three tabs in sequence</span></div>
+        <p>EC2 → Volumes → filter <code>tag:CostCenter = Lab</code> →
+          highlight the row with State <code>available</code>. Say: <em>"available means no instance is attached
+          — we're paying for storage that nothing reads or writes."</em></p>
+        <p>EC2 → Elastic IPs → filter the same tag → point at the empty Association column. Say:
+          <em>"AWS charges for unassociated EIPs at half a cent per hour — $3.65 a month for nothing."</em></p>
+        <p>EC2 → Instances → filter the same tag → click into the idle instance → Monitoring tab → point at
+          CPUUtilization sitting near zero across the last seven days. Say: <em>"This instance has been billed for
+          seven days and done no work."</em></p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Verify in Cost Explorer</span></div>
+        <p>
+          Cost Explorer → Service group-by → Daily granularity → 14-day window. The seed resources produce a small
+          but visible spike. Point at it. If Trusted Advisor cost checks are available (Business / Enterprise Support
+          only), show them here. If not, say so on camera — see the reasoning box below.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 4</span><span class="step-title">Verify via CloudSweep pipeline <span class="tag cs">CS</span></span></div>
+        <p>
+          Step Functions → <code>cloudsweep-dev-sfn</code> → most recent execution. The graph should show the full
+          path: <code>Scan → Evaluate → Decision → Remediate → NotifyComplete</code>. Click the <strong>Scan</strong>
+          state → Output tab. You will see two findings (EBS and EIP) as structured JSON. Call out that this is what
+          a finding looks like programmatically — not a screenshot, a normalized data structure that downstream
+          automation can act on.
+        </p>
+        <p>
+          Optionally open the <code>cloudsweep-dev-findings</code> DynamoDB table and show the same two findings
+          persisted as rows. Skip if you're running tight on time.
+        </p>
+      </div>
+
+      <div class="callout reason">
+        <span class="label">Why three detection sources</span>
+        <p>
+          Each source has a different blind spot. The console only shows what you remember to look at. Cost Explorer
+          aggregates spend but doesn't identify <em>which resource</em> is wasteful. CloudSweep scans on a schedule
+          and emits structured findings, but it currently has no EC2-idle scanner — which is why we needed
+          CloudWatch metrics for that one instance. Triangulating across the three is what makes the audit
+          defensible. It also surfaces the CloudSweep scope gap honestly, which is itself a sign of a trustworthy
+          audit.
+        </p>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Narration — read aloud</span>
+        <blockquote>
+          "Three resources, three different detection paths, same conclusion. The console shows them, Cost Explorer
+          shows the spend, and the CloudSweep pipeline emits structured findings that downstream automation can act
+          on. The idle instance is detected via CloudWatch metrics rather than CloudSweep — that's a known scope
+          gap, tracked as recommendation five in the prioritized plan. I'm flagging it now because an audit that
+          hides its limitations isn't an audit, it's marketing."
+        </blockquote>
+      </div>
+    </section>
+
+    <!-- 8. AUTOMATE — EBS GC -->
+    <section id="automate">
+      <h2><span class="num">07</span>Automate — EBS garbage collector</h2>
+      <p class="section-deck">3 minutes · Terminal. <span class="tag lab">LAB</span> · <strong>Judgement moment #1</strong></p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Demonstrate not just that the script works, but that it is <em>safe to run unattended</em>. Anyone can
+        write a delete loop. The engineering value lies in the guards that prevent the loop from deleting the
+        wrong thing.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Run a dry-run first</span></div>
+        <p>
+          Notice we are not passing <code>--delete</code>. The script defaults to dry-run; this is the safe path.
+          It enumerates candidates and prints the monthly $ estimate without touching anything.
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>python scripts/lab/garbage_collect_ebs.py `
+  --region eu-west-1 --tag CostCenter=Lab --grace-days 0</code></pre>
+        <p>
+          The output ends with <em>"DRY RUN — no action taken."</em> Read that line out loud. It's the moment that
+          tells reviewers the destructive path is opt-in, not opt-out.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Walk through the safety triad on screen</span></div>
+        <p>
+          Print the script's help so the reviewer can see the contract:
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>python scripts/lab/garbage_collect_ebs.py --help</code></pre>
+        <p>
+          Point at three things:
+        </p>
+        <ol>
+          <li><strong><code>--delete</code> is required for destructive action.</strong> Anything that mutates state should be opt-in.</li>
+          <li><strong><code>--tag KEY=VALUE</code> is mandatory whenever <code>--delete</code> is set.</strong> The script refuses with exit code 2 if you combine <code>--delete</code> with an empty tag filter — that prevents "delete every EBS volume in the account" by accident.</li>
+          <li><strong><code>--snapshot-first</code> produces a tagged recovery snapshot</strong> before any volume is deleted. The snapshot carries <code>PreDeleteSnapshot=true</code> and <code>SourceVolumeId=&lt;id&gt;</code> so it is itself discoverable.</li>
+        </ol>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Run the real delete with snapshot</span></div>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>python scripts/lab/garbage_collect_ebs.py `
+  --region eu-west-1 --tag CostCenter=Lab --grace-days 0 `
+  --delete --snapshot-first</code></pre>
+        <p>The output shows two lines per volume: the snapshot creation, then the deletion. Switch to the EC2 console:</p>
+        <ul>
+          <li>EC2 → Snapshots → filter <code>tag:PreDeleteSnapshot = true</code> → confirm the new snapshot is present.</li>
+          <li>EC2 → Volumes → refresh → confirm the lab volume is gone.</li>
+        </ul>
+      </div>
+
+      <div class="callout judgement">
+        <span class="label">Judgement moment #1 — the safety triad</span>
+        <p>
+          Pause for a beat here. Look at the camera. Say the next sentence slowly:
+        </p>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Narration — read aloud</span>
+        <blockquote>
+          "Three safety properties, none of which is optional. The script is dry-run by default — destructive
+          action is opt-in. It refuses to run if you combine delete with an empty tag filter — that single guard
+          prevents 'delete every EBS volume in the account' as a typo. And it snapshots before it deletes, with
+          the snapshot tagged so it's discoverable. None of these are clever. All of them are the difference
+          between a script you can leave running on a schedule and a script that ends a career."
+        </blockquote>
+      </div>
+
+      <div class="callout reason">
+        <span class="label">Why this matters operationally</span>
+        <p>
+          The cost optimization guide in this repo lists these as the "five rules of safe automated cleanup."
+          The script demonstrates three of them in twenty lines of code. The remaining two — grace period
+          (<code>--grace-days N</code>, default 7) and audit trail (structured log line per action) — are also
+          implemented; you can mention them briefly if there is time.
+        </p>
+      </div>
+    </section>
+
+    <!-- 9. BUDGET -->
+    <section id="budget">
+      <h2><span class="num">08</span>Govern — AWS Budget &amp; SNS alerts</h2>
+      <p class="section-deck">3 minutes · Budgets console + SNS + inbox. <span class="tag lab">LAB</span> · <strong>Judgement moment #2</strong></p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Demonstrate that monetary controls are wired end-to-end, not just configured. A budget without a confirmed
+        downstream subscriber is a budget that fires into a void.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Show the budget configuration</span></div>
+        <p>
+          Budgets console → <code>cloudsweep-dev-lab-monthly-budget</code>. Point at four properties in order:
+          the $50 cap, the FORECASTED notification at 100 %, the ACTUAL notification at 80 %, and the SNS topic
+          ARN on the destination side. Pause briefly on the FORECASTED + ACTUAL combination — that's the
+          configuration choice you'll defend in a moment.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Show the SNS topic + confirmed subscription</span></div>
+        <p>
+          SNS → topic <code>cloudsweep-dev-lab-cost-alerts</code> → Subscriptions tab. The email subscription
+          should show status <strong>Confirmed</strong>. Say one sentence: <em>"Unconfirmed subscriptions silently
+          drop messages — confirming the email is not optional."</em>
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Prove end-to-end delivery with a test publish</span></div>
+        <p>
+          The budget is configured, the subscription is confirmed — but is the SNS topic policy correct?
+          A test publish takes three seconds and removes all ambiguity.
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>aws sns publish `
+  --topic-arn arn:aws:sns:eu-west-1:648637468459:cloudsweep-dev-lab-cost-alerts `
+  --subject "Walkthrough test" `
+  --message "Budget alert path verified end-to-end." `
+  --region eu-west-1</code></pre>
+        <p>
+          Switch to your inbox. The message should arrive within seconds. (Pre-stage a prior delivery in the
+          inbox in case Outlook is slow.)
+        </p>
+      </div>
+
+      <div class="callout judgement">
+        <span class="label">Judgement moment #2 — layered alerts</span>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Narration — read aloud</span>
+        <blockquote>
+          "Two notifications, one budget. FORECASTED at a hundred percent catches runaways before the dollars land —
+          AWS's projection at the five-to-seven-day mark of the month is usually within ten percent accuracy, so we
+          get a real early-warning radar. ACTUAL at eighty percent is the late-warning fallback if forecasting
+          underestimates, which it sometimes does on small bases. The combination is the cheapest insurance in
+          cloud: one Terraform module, two notifications, every dollar of accidental runaway caught."
+        </blockquote>
+      </div>
+
+      <div class="callout reason">
+        <span class="label">Why the topic policy matters</span>
+        <p>
+          The single most common misconfiguration in this control is forgetting to grant
+          <code>budgets.amazonaws.com</code> permission to publish to the SNS topic. The budget fires, sends to
+          SNS, SNS refuses, and the alert never reaches the human — silently. The Terraform module wires this
+          policy automatically; the test publish proves it is correct.
+        </p>
+      </div>
+    </section>
+
+    <!-- 10. TAGGING -->
+    <section id="tags">
+      <h2><span class="num">09</span>Govern — CostCenter tag enforcement</h2>
+      <p class="section-deck">3 minutes · IAM + terminal. <span class="tag lab">LAB</span></p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Demonstrate that the deny policy is not just deployed but <em>actually denies</em>. A policy that allows
+        everything is just as broken as one that denies everything — the only way to know is to test both paths.
+        This section is also the section reviewers tend to remember most viscerally, because watching a deny fire
+        on screen is satisfying in a way watching a budget configuration is not.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Open the policy JSON</span></div>
+        <p>
+          IAM → Policies → <code>cloudsweep-dev-lab-require-costcenter</code> → JSON tab. Point at the two
+          <code>Deny</code> statements. The first denies <code>ec2:RunInstances</code> when
+          <code>aws:RequestTag/CostCenter</code> is null. The second denies <code>ec2:DeleteTags</code> when the
+          tag key is <code>CostCenter</code>. Say one sentence: <em>"the second statement is what stops users from
+          stripping the tag immediately after launch."</em>
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Assume the restricted role</span></div>
+        <p>
+          Both tests must run as the role the policy is attached to, not as your admin user. Open a new terminal
+          pane and assume the role:
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>$creds = aws sts assume-role `
+  --role-arn arn:aws:iam::648637468459:role/cloudsweep-dev-lab-restricted-role `
+  --role-session-name walkthrough `
+  --query Credentials --output json | ConvertFrom-Json
+$env:AWS_ACCESS_KEY_ID     = $creds.AccessKeyId
+$env:AWS_SECRET_ACCESS_KEY = $creds.SecretAccessKey
+$env:AWS_SESSION_TOKEN     = $creds.SessionToken</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Negative test — launch without the tag</span></div>
+        <p>
+          This call should fail with an explicit deny. If it succeeds, the policy is broken — abort the recording
+          and fix it before continuing.
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>aws ec2 run-instances `
+  --image-id ami-0c13c2049f369d641 --instance-type t3.micro `
+  --count 1 --region eu-west-1</code></pre>
+        <p>
+          Expected response: <strong><code>UnauthorizedOperation</code> — "explicit deny in an identity-based
+          policy: cloudsweep-dev-lab-require-costcenter."</strong> Read the error message aloud. This is the
+          moment the audit lands.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 4</span><span class="step-title">Positive test — launch with the tag</span></div>
+        <p>
+          The same call, plus <code>--tag-specifications</code>, must succeed. Otherwise the policy denies
+          legitimate work.
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>aws ec2 run-instances `
+  --image-id ami-0c13c2049f369d641 --instance-type t3.micro `
+  --count 1 --region eu-west-1 `
+  --tag-specifications "ResourceType=instance,Tags=[{Key=CostCenter,Value=Lab}]"</code></pre>
+        <p>
+          You should see an <code>InstanceId</code> in the response. Terminate it immediately so you don't
+          accumulate charges:
+        </p>
+<pre><code>aws ec2 terminate-instances --instance-ids &lt;id&gt; --region eu-west-1</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 5</span><span class="step-title">Mention the enterprise variant</span></div>
+        <p>
+          Briefly state, without scrolling away: <em>"For multi-account organisations, the recommended pattern is
+          an Organizations SCP plus a Tag Policy — that sits above IAM and can't be bypassed even by account-root.
+          The SCP JSON is documented in <code>docs/lab/tag-governance.md</code> but isn't deployed here because
+          the sandbox account is not part of an Organization."</em>
+        </p>
+        <p>Finally, reset your environment so subsequent commands run as your admin user again:</p>
+<pre><code>Remove-Item Env:AWS_ACCESS_KEY_ID, Env:AWS_SECRET_ACCESS_KEY, Env:AWS_SESSION_TOKEN</code></pre>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Narration — read aloud (after the negative test)</span>
+        <blockquote>
+          "Both paths tested. A deny policy that nobody ever exercises is theatre — the only way to know it
+          works is to try to do the thing it's supposed to stop. The error message names the policy by name,
+          which is exactly what you want for incident response: a developer who hits this in real life knows
+          immediately what to ask their platform team for."
+        </blockquote>
+      </div>
+
+      <div class="callout reason">
+        <span class="label">Why pair RunInstances deny with DeleteTags deny</span>
+        <p>
+          Without the second statement, a developer could launch with the required tag and then immediately call
+          <code>ec2:DeleteTags</code> to remove it. The policy would be technically present but operationally
+          worthless. This is one of the most common tagging-policy bugs in production accounts.
+        </p>
+      </div>
+    </section>
+
+    <!-- 11. SPOT ASG -->
+    <section id="spot">
+      <h2><span class="num">10</span>Optimize — Mixed Instances Spot ASG</h2>
+      <p class="section-deck">4 minutes · ASG console + cost-comparison table. <span class="tag lab">LAB</span> · <strong>Judgement moment #3</strong></p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Demonstrate the textbook stateless-workload pattern — On-Demand baseline plus Spot scale-out — and
+        articulate why <em>each</em> configuration choice was made. Anyone can deploy an ASG; the value lies in
+        explaining why this ASG looks the way it does and not some other way.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Open the ASG configuration</span></div>
+        <p>
+          EC2 → Auto Scaling Groups → <code>cloudsweep-dev-lab-asg</code> → Instance management tab. Pause on the
+          Mixed Instances Policy block and read out the four knobs that matter:
+        </p>
+        <ul>
+          <li><strong>On-Demand base capacity = 1.</strong> Service-level guarantee: at least one node is always present even if every Spot pool gets reclaimed.</li>
+          <li><strong>On-Demand percentage above base = 0.</strong> Every node beyond the baseline is Spot — maximum savings.</li>
+          <li><strong>Spot allocation strategy = price-capacity-optimized.</strong> AWS chooses pools that balance current price <em>and</em> pool depth. More interruption-resistant than the older <code>lowest-price</code> strategy.</li>
+          <li><strong>Capacity rebalancing on.</strong> ASG preemptively replaces at-risk Spot instances <em>before</em> AWS reclaims them.</li>
+        </ul>
+        <p>
+          Switch to the Instances tab. The table shows the Lifecycle column: one row says <em>On-Demand</em>, the
+          rest say <em>Spot</em>. The Availability Zone column shows three different AZs. Diversification across
+          types and AZs is what makes Spot survivable.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Trigger a scale-out, if not already at desired = 4</span></div>
+        <p>
+          If the ASG is at 2 instances, demonstrating the mix is more convincing at 4. Set the desired capacity
+          to 4 and watch the events stream in.
+        </p>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>aws autoscaling set-desired-capacity `
+  --auto-scaling-group-name cloudsweep-dev-lab-asg `
+  --desired-capacity 4 --region eu-west-1</code></pre>
+        <p>
+          Open the Activity tab and let reviewers watch the three Spot launches appear. Then return to the
+          Instances tab and confirm the final mix: 1 On-Demand + 3 Spot, spread across AZs a, b, and c.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Show the cost math</span></div>
+        <p>
+          Switch to <code>README.md</code> § 7.3. The table summarises a 4-node <code>t3.micro</code> fleet,
+          730 hours per month, eu-west-1 list prices:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Configuration</th><th>Hourly</th><th>Monthly</th><th>vs all On-Demand</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>All On-Demand</td><td>$0.0456</td><td>$33.29</td><td>baseline</td></tr>
+            <tr><td><strong>1 OD + 3 Spot (default)</strong></td><td>$0.0222</td><td><strong>$16.21</strong></td><td><strong>−51 %</strong></td></tr>
+            <tr><td>All Spot (no baseline)</td><td>$0.0144</td><td>$10.51</td><td>−68 % · higher risk</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Point at the middle row, then at the top row. The same ratio applied to a 100-node web tier saves
+          $400+ per month for the cost of writing the module once.
+        </p>
+      </div>
+
+      <div class="callout judgement">
+        <span class="label">Judgement moment #3 — allocation strategy</span>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Narration — read aloud</span>
+        <blockquote>
+          "Four instance types across three availability zones gives EC2 twelve Spot pools to choose from —
+          that's the diversification. The allocation strategy is <code>price-capacity-optimized</code>, which
+          balances current Spot price against pool depth — more interruption-resistant than the older
+          <code>lowest-price</code> strategy that just chases the cheapest pool until it runs out. The
+          On-Demand baseline of one guarantees the service stays up even if every Spot pool gets reclaimed in
+          the same five minutes. Net result: fifty-one percent off the steady-state bill for this workload, and
+          the same ratio applies all the way up to a hundred-node fleet. One module, written once, multiplied
+          across every team that adopts the pattern."
+        </blockquote>
+      </div>
+
+      <div class="callout warning">
+        <span class="label">When NOT to use this pattern</span>
+        <p>
+          Spot is the wrong choice for long-running stateful processes that cannot checkpoint, for workloads with
+          per-instance licensing where the license cost dwarfs the Spot saving, and for strict SLAs without a
+          fallback capacity plan. The full decision matrix is in the Cost Optimization Guide § 6.2. Don't sell
+          Spot as universal — sell it as the right pattern for stateless tiers.
+        </p>
+      </div>
+    </section>
+
+    <!-- 12. RECOMMENDATIONS -->
+    <section id="recs">
+      <h2><span class="num">11</span>Recommendations &amp; teardown</h2>
+      <p class="section-deck">2 minutes · README + terminal.</p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Land the audit's prescriptive output (what should happen next, ordered by effort vs. impact) and show
+        a clean teardown. A walkthrough that doesn't end with teardown leaves reviewers wondering whether the
+        presenter left resources running.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Walk the top three recommendations</span></div>
+        <p>
+          README § 9. Point at the top three rows and read them out in order. Don't read all eight — the table
+          is there for the asynchronous reviewer; on camera, hit only the top three:
+        </p>
+        <ol>
+          <li><strong>Activate the budget with FORECASTED alerts.</strong> Very low effort, prevents single-incident runaways that can cost thousands. Do this before any architectural change.</li>
+          <li><strong>Enforce CostCenter tagging at launch.</strong> Compounds over time — every chargeback dashboard you build later depends on it.</li>
+          <li><strong>Adopt Mixed Instances + Spot for stateless tiers.</strong> Roughly fifty percent recurring saving on the relevant fleet.</li>
+        </ol>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 2</span><span class="step-title">Show the teardown command (run off-camera if tight)</span></div>
+        <div class="cmd-label">PowerShell</div>
+<pre><code>terraform -chdir=terraform/environments/dev apply `
+  -var="enable_lab_seed=false" `
+  -var="enable_lab_budget=false" `
+  -var="enable_lab_tag_governance=false" `
+  -var="enable_lab_compute=false" `
+  -auto-approve</code></pre>
+        <p>
+          Mention the manual cleanup pointer: snapshots from <code>--snapshot-first</code>, SNS email
+          unsubscribe, SSM parameters — the full list is in README § 14 and audit doc § 9.
+        </p>
+      </div>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 3</span><span class="step-title">Verify nothing remains</span></div>
+        <p>Run one verification query to close the loop:</p>
+<pre><code>aws ec2 describe-volumes `
+  --filters Name=tag:CostCenter,Values=Lab `
+  --region eu-west-1 --query "Volumes[].VolumeId"
+# Expect: []</code></pre>
+      </div>
+    </section>
+
+    <!-- 13. RECAP -->
+    <section id="recap">
+      <h2><span class="num">12</span>Recap &amp; close</h2>
+      <p class="section-deck">1 minute · README "60-second" block.</p>
+
+      <h3>Goal of this section</h3>
+      <p>
+        Reviewers remember the last thing they saw. End strong: five outcomes, named, in the order they were
+        produced. Then state where to find the rest of the submission package and stop the recording.
+      </p>
+
+      <div class="step">
+        <div class="step-header"><span class="step-num">Step 1</span><span class="step-title">Restate the five outcomes</span></div>
+        <p>
+          Switch to <code>README.md</code> "📖 Read This in 60 Seconds" block. Read the five outcomes aloud, one
+          beat between each:
+        </p>
+        <ol>
+          <li>Identified $12.79 per month of zombie waste in three sandbox resources.</li>
+          <li>Built a dry-run-first EBS garbage collector with 23/23 unit tests.</li>
+          <li>Deployed a $50 Budget with FORECASTED + ACTUAL alerts → SNS → confirmed email.</li>
+          <li>Enforced <code>CostCenter</code> tagging at launch via an IAM deny — both paths tested.</li>
+          <li>Architected a Mixed Instances ASG with −51 % savings on the stateless tier.</li>
+        </ol>
+      </div>
+
+      <div class="callout narration">
+        <span class="label">Closing line — read aloud</span>
+        <blockquote>
+          "Submission package: README, audit document, optimization guide, walkthrough script, evidence checklist —
+          all on the repo, link in the description. Thanks for watching."
+        </blockquote>
+      </div>
+
+      <p>Stop recording.</p>
+    </section>
+
+    <!-- 14. RECOVERY -->
+    <section id="recovery">
+      <h2><span class="num">13</span>Recovery cheatsheet — mid-demo failures</h2>
+      <p class="section-deck">If something goes wrong on camera, recover here. Edit the failure out in post.</p>
+
+      <table>
+        <thead>
+          <tr><th>Symptom</th><th>Fast recovery</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>terraform apply</code> fails</td>
+            <td>Pivot to pre-deployed evidence screenshots in <code>images/lab/</code>. Narrate them; reviewer doesn't know you weren't planning to do this.</td>
+          </tr>
+          <tr>
+            <td>Step Functions stuck on approval</td>
+            <td>Open the <code>WaitForApproval</code> state input, call the approval API directly with <code>curl</code>. Mention this is the documented manual override path.</td>
+          </tr>
+          <tr>
+            <td>Slack webhook returns 404</td>
+            <td>Notifier fails open by design. Show CloudWatch Logs of the constructed payload instead — that's still proof the integration is wired correctly.</td>
+          </tr>
+          <tr>
+            <td>Spot capacity unavailable</td>
+            <td>Show the ASG Activity tab — diversification has kicked in and picked a different pool. Pivot to the cost-comparison table.</td>
+          </tr>
+          <tr>
+            <td>Cost Explorer is empty</td>
+            <td>Cost Explorer lags ~24 hours behind real spend. Pre-stage a screenshot from yesterday; show that instead.</td>
+          </tr>
+          <tr>
+            <td>SNS test publish doesn't arrive in inbox</td>
+            <td>Outlook can delay external SMTP by 1–3 minutes. Pre-stage a screenshot of a prior delivery; the MessageId is in the audit doc § 6.1.</td>
+          </tr>
+          <tr>
+            <td>IAM <code>assume-role</code> denied</td>
+            <td>The trust policy on <code>cloudsweep-dev-lab-restricted-role</code> may not allow your principal. Check the role's Trust relationships tab.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 15. POST-PRODUCTION -->
+    <section id="postprod">
+      <h2><span class="num">14</span>Post-production checklist</h2>
+      <p class="section-deck">After you stop recording, before you publish.</p>
+
+      <ol>
+        <li><strong>Watch the recording end-to-end at 1.25× speed.</strong> Cut dead air — anything longer than 3 seconds of nothing. Reviewers will forgive a fluffed sentence; they will not forgive boredom.</li>
+        <li><strong>Confirm all on-screen text is legible.</strong> Zoom in on the smallest moment (probably the Step Functions JSON output) and check it would still be readable on a phone.</li>
+        <li><strong>Add a 5-second title card</strong> at the start: project name, your name, the date.</li>
+        <li><strong>Add a 5-second end card</strong> with the GitHub repo URL: <code>github.com/celetrialprince166/finops-cost-detective</code>.</li>
+        <li><strong>Upload as YouTube Unlisted</strong> (or Loom). Unlisted means anyone with the link can watch; it does not appear in search. That's the right balance for a portfolio piece.</li>
+        <li><strong>Update <code>README.md</code> § 12</strong> — replace the <em>"to be linked here after recording"</em> placeholder with the YouTube or Loom URL. Commit with message <code>docs: link walkthrough recording</code> and push.</li>
+        <li><strong>Verify the link works from an incognito window.</strong> Unlisted videos still require the YouTube setting to be saved; double-check before sharing.</li>
+      </ol>
+
+      <div class="callout reason">
+        <span class="label">Final sanity check</span>
+        <p>
+          Before you share the link, watch the first 90 seconds with the sound off. Does the screen layout
+          communicate the scope of the work without your voice? If not, retake the framing section — that's the
+          part reviewers form their assessment from.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        Cost Detective Audit — submitted by Prince Tetteh Ayiku ·
+        <a href="https://github.com/celetrialprince166/finops-cost-detective">github.com/celetrialprince166/finops-cost-detective</a> ·
+        Companion documents: <a href="../../README.md">README</a> ·
+        <a href="../COST_DETECTIVE_AUDIT.md">Audit doc</a> ·
+        <a href="../COST_OPTIMIZATION_GUIDE.md">Optimization guide</a>
+      </p>
+    </footer>
+
+  </main>
+</div>
+
+</body>
+</html>
