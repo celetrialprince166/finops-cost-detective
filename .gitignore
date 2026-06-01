@@ -1,0 +1,91 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Terraform
+# ──────────────────────────────────────────────────────────────────────────
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+backend.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ──────────────────────────────────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+*.env
+
+# ──────────────────────────────────────────────────────────────────────────
+# Test / lint caches
+# ──────────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ──────────────────────────────────────────────────────────────────────────
+# IDE / editor state
+# ──────────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.cursor/
+.claude/
+*.swp
+
+# ──────────────────────────────────────────────────────────────────────────
+# OS
+# ──────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ──────────────────────────────────────────────────────────────────────────
+# AWS / secrets
+# ──────────────────────────────────────────────────────────────────────────
+*.pem
+credentials
+
+# ──────────────────────────────────────────────────────────────────────────
+# Internal / scratch artifacts not part of the submission
+# (kept on disk for reference; intentionally untracked)
+# ──────────────────────────────────────────────────────────────────────────
+
+# Chat / session transcripts
+session-*.md
+
+# External issue-tracker exports
+jira.docx
+
+# Root-level scratch HTML
+cost-detective-deepdive.html
+
+# Portfolio / career artifacts
+portfolio/
+
+# CloudSweep internal engineering-process docs
+docs/PRD.md
+docs/MVP_SPEC.md
+docs/implementation_plan.md
+
+# Internal dev / handoff / process docs
+docs/DEV_DIARY.md
+docs/DEVELOPER_HANDOFF.md
+docs/AC_AUDIT.md
+docs/TERRAFORM_AGENT.md
+docs/TERRAFORM_IMPLEMENTATION_REVIEW.md
+
+# Orphan / scratch HTML & images
+docs/cost-detective-presentation.html
+docs/cloudsweep_architecture_diagram_*.png
+images/image.png

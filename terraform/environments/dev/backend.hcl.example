@@ -1,0 +1,5 @@
+bucket         = "cloudsweep-tf-state"
+key            = "dev/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "cloudsweep-tf-lock"
+encrypt        = true
